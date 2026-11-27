@@ -290,13 +290,19 @@ function candleChart(candles){
     s+=`<line x1="${pad}" y1="${y.toFixed(1)}" x2="${w-10}" y2="${y.toFixed(1)}" stroke="${GT}" stroke-width="1"/>`+
        `<text x="2" y="${(y+4).toFixed(1)}" font-size="11" fill="#666">${fmt(v,0)}</text>`; }
   cs.forEach((k,i)=>{ const x=X(i), up=k.c>=k.o, col=up? "#c0392b" : "#1565c0";
+    const chg = k.o? (k.c/k.o - 1)*100 : 0, a = Math.abs(chg);
+    const op = a>=10? 1 : a>=5? 0.68 : 0.35;
     const yO=Y(k.o), yC=Y(k.c), top=Math.min(yO,yC), bh=Math.max(1.4, Math.abs(yC-yO));
-    s+=`<line x1="${x.toFixed(1)}" y1="${Y(k.h).toFixed(1)}" x2="${x.toFixed(1)}" y2="${Y(k.l).toFixed(1)}" stroke="${col}" stroke-width="1.2"/>`+
-       `<rect x="${(x-bw/2).toFixed(1)}" y="${top.toFixed(1)}" width="${bw.toFixed(1)}" height="${bh.toFixed(1)}" fill="${col}"/>`; });
+    s+=`<line x1="${x.toFixed(1)}" y1="${Y(k.h).toFixed(1)}" x2="${x.toFixed(1)}" y2="${Y(k.l).toFixed(1)}" stroke="${col}" stroke-opacity="${Math.max(op,0.55)}" stroke-width="1.2"/>`+
+       `<rect x="${(x-bw/2).toFixed(1)}" y="${top.toFixed(1)}" width="${bw.toFixed(1)}" height="${bh.toFixed(1)}" fill="${col}" fill-opacity="${op}"/>`; });
   for (let t=0;t<=NV;t++){ const gi=Math.round((cs.length-1)*t/NV), gx=X(gi);
     const anch = t===0? "start" : t===NV? "end" : "middle";
     s+=`<text x="${gx.toFixed(1)}" y="${h-8}" font-size="11" fill="#666" text-anchor="${anch}">${cs[gi].x}</text>`; }
-  return s+"</svg>";
+  return s+"</svg>"+
+    `<div class="note" style="margin-top:2px">色の濃さ＝その足の値動きの大きさ（3段階）：`+
+    `<span style="color:#c0392b;opacity:.45">■</span><span style="color:#1565c0;opacity:.45">■</span> 5%未満　`+
+    `<span style="color:#c0392b;opacity:.75">■</span><span style="color:#1565c0;opacity:.75">■</span> 5〜10%　`+
+    `<span style="color:#c0392b">■</span><span style="color:#1565c0">■</span> 10%以上</div>`;
 }
 // aggregate daily OHLC into buckets of `size` trading days (1 candle per bucket)
 function bucketCandles(i, from, size){
