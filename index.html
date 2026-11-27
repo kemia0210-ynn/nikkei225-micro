@@ -42,6 +42,9 @@
   table.grid thead th:first-child { background:#efece4; z-index:2; }
   table.grid tbody tr:nth-child(even) td { background:#fbfaf7; }
   table.grid tbody tr.clickable:hover td { background:#f3f1ea; }
+  table.rvstocks { table-layout:fixed; }
+  table.rvstocks th, table.rvstocks td { white-space:normal; word-break:break-all; font-size:12.5px; }
+  table.rvstocks th:first-child, table.rvstocks td:first-child { position:static; }
   footer { padding:16px; color:var(--mut); font-size:11px; text-align:center; }
   svg { width:100%; height:auto; display:block; }
 </style>
@@ -143,6 +146,7 @@
       <div class="note">全銘柄をまとめた集計です。個別銘柄ごとの傾向ではなく全体傾向として見てください。</div></div>
     <div class="card"><h2>業種別</h2>
       <select id="rvSectorSel"></select>
+      <div style="margin:2px 0 4px"><a href="#" id="rvSectorGo" style="font-size:13px">選択中の業種を業種タブで開く →</a></div>
       <div id="rvSectorTable" style="margin-top:10px"></div>
       <div class="note">業種指数ベース。1業種あたり週は約100本しかないため、条件によってはNが一桁になります。</div></div>
     <div class="card"><h2>期間比較（昔と今でどれくらい違うか）</h2><div id="rvCompare"></div>
@@ -646,9 +650,9 @@ function rvTable(per){
   if (!per) return "（データなし）";
   const rows = RV.signals.map(sg=>{
     const p = per[sg.id] || {};
-    return `<tr><td style="text-align:left;white-space:nowrap">${sg.label}</td>${rvCell(p.h1)}${rvCell(p.h2)}${rvCell(p.h4)}</tr>`;
+    return `<tr><td style="text-align:left;white-space:nowrap;font-size:12px">${sg.label}</td>${rvCell(p.h1)}${rvCell(p.h2)}${rvCell(p.h4)}</tr>`;
   }).join("");
-  return `<div class='tblwrap'><table class='grid' style='min-width:560px'><thead><tr><th style="text-align:left">シグナル</th><th>翌1週</th><th>翌2週</th><th>翌4週</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  return `<div class='tblwrap'><table class='grid' style='min-width:500px'><thead><tr><th style="text-align:left">シグナル</th><th>翌1週</th><th>翌2週</th><th>翌4週</th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 function rvCompareTable(cmp, kind){
   const per = cmp[kind]; if (!per) return "";
@@ -677,7 +681,7 @@ function renderCurrent(){
   Object.keys(cur.sectors).sort().forEach(name=>{
     cur.sectors[name].forEach(sid=>{
       const sg = RV.signals.find(x=>x.id===sid), p = (RV.sector[name]||{})[sid] || {};
-      srows.push(`<tr><td style="text-align:left;white-space:nowrap">${name}</td><td style="text-align:left;white-space:nowrap">${sg? sg.label : sid}</td>${rvCell(p.h1)}${rvCell(p.h2)}${rvCell(p.h4)}</tr>`);
+      srows.push(`<tr class="clickable" onclick="goSector(${sectors.indexOf(name)})"><td style="text-align:left;white-space:nowrap">${name}</td><td style="text-align:left;white-space:nowrap">${sg? sg.label : sid}</td>${rvCell(p.h1)}${rvCell(p.h2)}${rvCell(p.h4)}</tr>`);
     });
   });
   document.getElementById("rvCurSectors").innerHTML = srows.length
@@ -692,9 +696,10 @@ function renderCurrent(){
     document.getElementById("rvCurSigStats").innerHTML =
       `<div class="note" style="font-size:13px">銘柄プールでの過去：翌1週 転換率 ${cell(p.h1)} ／ 翌4週 転換率 ${cell(p.h4)}</div>`;
     document.getElementById("rvCurStocks").innerHTML =
-      `<div class='tblwrap'><table class='grid' style='min-width:480px'><thead><tr><th style="text-align:left">銘柄</th><th style="text-align:left">業種</th><th>その週の騰落率</th></tr></thead><tbody>`+
-      lst.map(it=>`<tr><td style="text-align:left">${it.n}（${it.c}）</td><td style="text-align:left">${it.s}</td><td class="${it.r>=0? "up":"dn"}">${it.r>0?"+":""}${it.r}%</td></tr>`).join("")+
-      "</tbody></table></div>";
+      `<table class='grid rvstocks'><colgroup><col style="width:47%"><col style="width:29%"><col style="width:24%"></colgroup><thead><tr><th style="text-align:left">銘柄</th><th style="text-align:left">業種</th><th>その週の騰落率</th></tr></thead><tbody>`+
+      lst.map(it=>`<tr class="clickable" onclick="jumpStock(${stocks.findIndex(s=>s.c===it.c)})"><td style="text-align:left">${it.n}（${it.c}）</td><td style="text-align:left">${it.s}</td><td class="${it.r>=0? "up":"dn"}">${it.r>0?"+":""}${it.r}%</td></tr>`).join("")+
+      "</tbody></table>"+
+      `<div class="note">行を押すと個別銘柄タブへ、上の業種の表の行を押すと業種タブへ移動します。</div>`;
   };
   sel.onchange = draw;
   if (fired.length) draw();
@@ -712,6 +717,7 @@ function renderReversal(){
   sel.innerHTML = sectors.map(s=>`<option>${s}</option>`).join("");
   const draw = ()=>{ document.getElementById("rvSectorTable").innerHTML = rvTable(RV.sector[sel.value]); };
   sel.onchange = draw; draw();
+  document.getElementById("rvSectorGo").onclick = (e)=>{ e.preventDefault(); goSector(sectors.indexOf(sel.value)); };
   document.getElementById("rvCompare").innerHTML = RV.compare
     ? "<h3 style='margin:6px 0'>業種プール</h3>" + rvCompareTable(RV.compare, "sectors") +
       "<h3 style='margin:14px 0 6px'>銘柄プール</h3>" + rvCompareTable(RV.compare, "stocks")
